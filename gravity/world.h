@@ -1,7 +1,14 @@
 #pragma once
 
+#include <algorithm>
+#include <chrono>
 #include <rengine/core/graphics.h>
 #include "mpmc_queue.h"
+
+union UintFloat {
+    uint32_t ui;
+    float f;
+};
 
 union Position {
     Vec2f coordinates;
@@ -12,6 +19,26 @@ struct Star {
     std::atomic<uint64_t> position;
     Vec2f velocity;
     float mass;
+
+    std::atomic<float> lastElapsed = 0;
+
+    using Clock = std::chrono::steady_clock;
+    using Timestamp = std::chrono::time_point<Clock>;
+    using Duration = std::chrono::duration<float>;
+    using Ns = std::chrono::nanoseconds;
+    Timestamp lastTs;
+
+    float UpdateTimestamp() {
+        static UintFloat converter;
+        Timestamp now = Clock::now();
+        Duration duration = now - lastTs;
+        float elapsedNs = std::chrono::duration_cast<Ns>(duration).count();
+        float elapsedMs = elapsedNs / 1'000'000;
+        converter.f = elapsedMs;
+        lastElapsed.store(converter.ui);
+        lastTs = now;
+        return std::min(elapsedMs, 1000.f);
+    }
 };
 
 class World {

@@ -25,7 +25,10 @@ void SingleThreadedWorld::Tick(float elapsedSec) {
         stars[i].velocity += force / stars[i].mass * elapsedSec;
     }
 
+    UintFloat converter;
     for (size_t i = 0; i < starsNumber; ++i) {
+        converter.f = elapsedSec * 1000;
+        stars[i].lastElapsed.store(converter.ui);
         Position pos1{};
         pos1.raw = stars[i].position.load();
         pos1.coordinates += stars[i].velocity * elapsedSec;

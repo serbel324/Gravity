@@ -7,6 +7,7 @@
 #include <atomic>
 
 #include "world.h"
+#include "continuous_world.h"
 #include "single_threaded_world.h"
 #include "multi_threaded_world.h"
 
@@ -14,7 +15,7 @@ const Vec2i worldSize = {800, 800};
 
 class MainFrame : public REngine::Frame {
 public:
-    using BraveNewWorld = SingleThreadedWorld;
+    using BraveNewWorld = MultiThreadedWorld;
 
 public:
     MainFrame()
@@ -34,13 +35,19 @@ public:
         _world->GenerateStars(starsNum);
 
         font.loadFromFile("font.ttf");
+
+        _world->Run();
     }
 
     bool Update(float elapsedMs) override {
-        _world->Tick(0.01);
+        _world->Tick(elapsedMs / 1000);
 
-        totalMsElapsed += elapsedMs;
-        window.push_back(elapsedMs);
+        size_t star = ExtMath::RandomInt(0, _world->starsNumber);
+        UintFloat converter;
+        converter.ui = _world->stars[star].lastElapsed.load();
+
+        totalMsElapsed += converter.f;
+        window.push_back(converter.f);
 
         if (window.size() > maxWindowSize) {
             totalMsElapsed -= window.front();

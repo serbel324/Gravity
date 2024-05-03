@@ -1,27 +1,25 @@
-#include "multi_threaded_world.h"
+#include "continuous_world.h"
 
 #include <algorithm>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
 
-MultiThreadedWorld::MultiThreadedWorld(Vec2i size)
+ContinuousWorld::ContinuousWorld(Vec2i size)
     : World(size)
     , _queue(maxStarsNumber)
 {
     std::cout << std::thread::hardware_concurrency() << " threads will be used" << std::endl;
 }
 
-void MultiThreadedWorld::Tick(float elapsedSec) {
-    std::atomic<int32_t> tasksPending = starsNumber;
+void ContinuousWorld::Tick(float) {
+}
 
-    size_t workersNum = std::thread::hardware_concurrency() - 1;
-
+void ContinuousWorld::Run() {
     auto work = [&] () {
-        while (tasksPending.fetch_sub(1) > 0) {
+        while (true) {
             size_t star;
             _queue.pop(star);
-
             Vec2f force{0, 0};
             Position pos1{};
             pos1.raw = stars[star].position.load();
@@ -36,36 +34,25 @@ void MultiThreadedWorld::Tick(float elapsedSec) {
                 float dist = std::max(std::pow(delta.magnitude(), 2), 1.);
                 force += delta.normalized() * stars[star].mass * stars[j].mass / dist * G;
             }
+            float elapsedSec = stars[star].UpdateTimestamp() / 1000;
             stars[star].velocity += force / stars[star].mass * elapsedSec;
+
+            pos1.raw = stars[star].position.load();
+            pos1.coordinates += stars[star].velocity * elapsedSec;
+            stars[star].position.store(pos1.raw);
+            _queue.push(star);
         }
     };
-    
-    UintFloat converter;
+
     for (size_t i = 0; i < starsNumber; ++i) {
-        converter.f = elapsedSec * 1000;
-        stars[i].lastElapsed.store(converter.ui);
         _queue.push(i);
     }
 
-    std::vector<std::thread> threads;
-    threads.resize(workersNum);
+    size_t workersNum = std::thread::hardware_concurrency() - 1;
 
+    _threads.resize(workersNum);
     for (size_t i = 0; i < workersNum; ++i) {
-        threads[i] = std::thread(work);
+        _threads[i] = std::thread(work);
     }
 
-    for (size_t i = 0; i < workersNum; ++i) {
-        threads[i].join();
-    }
-
-    for (size_t i = 0; i < starsNumber; ++i) {
-        Position pos1{};
-        pos1.raw = stars[i].position.load();
-        pos1.coordinates += stars[i].velocity * elapsedSec;
-        stars[i].position.store(pos1.raw);
-    }
-
-}
-
-void MultiThreadedWorld::Run() {
 }

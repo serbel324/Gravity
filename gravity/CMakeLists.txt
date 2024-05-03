@@ -8,6 +8,7 @@ project(App)
 set(SOURCES
     main.cpp
     world.cpp
+    continuous_world.cpp
     single_threaded_world.cpp
     multi_threaded_world.cpp
 )
